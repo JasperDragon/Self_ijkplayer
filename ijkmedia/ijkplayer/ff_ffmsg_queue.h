@@ -97,7 +97,9 @@ inline static int msg_queue_put_private(MessageQueue *q, AVMessage *msg)
         q->last_msg->next = msg1;
     q->last_msg = msg1;
     q->nb_messages++;
+    
     SDL_CondSignal(q->cond);
+    
     return 0;
 }
 

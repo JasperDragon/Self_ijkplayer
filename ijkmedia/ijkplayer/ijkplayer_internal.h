@@ -33,6 +33,9 @@
 struct IjkMediaPlayer {
     volatile int ref_count;
     pthread_mutex_t mutex;
+    //
+    //很重要，这个原始的播放器统一接口整合了FFmpeg 和 SDL库
+    //
     FFPlayer *ffplayer;
 
     int (*msg_loop)(void*);
