@@ -2969,6 +2969,10 @@ static int is_realtime(AVFormatContext *s)
 }
 
 /* this thread gets the stream from the disk or the network */
+//
+//数据读取的整个过程都是由ffmpeg内部完成的，接收到网络过来的数据后，
+//ffmpeg根据其封装格式，完成了解复用的动作，我们得到的，是音视频分离开的解码前的数据
+//
 static int read_thread(void *arg)
 {
     FFPlayer *ffp = arg;
@@ -3001,13 +3005,19 @@ static int read_thread(void *arg)
     is->last_audio_stream = is->audio_stream = -1;
     is->last_subtitle_stream = is->subtitle_stream = -1;
     is->eof = 0;
-
+    
+    //
+    //1.创建上下文结构体，这个结构体是最上层的结构体，表示输入上下文
+    //
     ic = avformat_alloc_context();
     if (!ic) {
         av_log(NULL, AV_LOG_FATAL, "Could not allocate context.\n");
         ret = AVERROR(ENOMEM);
         goto fail;
     }
+    //
+    //2.设置中断函数，如果出错或者退出，就可以立刻退出
+    //
     ic->interrupt_callback.callback = decode_interrupt_cb;
     ic->interrupt_callback.opaque = is;
     if (!av_dict_get(ffp->format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE)) {
@@ -3028,6 +3038,9 @@ static int read_thread(void *arg)
 
     if (ffp->iformat_name)
         is->iformat = av_find_input_format(ffp->iformat_name);
+    //
+    //3.打开文件，主要是探测协议类型，如果是网络文件则创建网络链接等
+    //
     err = avformat_open_input(&ic, is->filename, is->iformat, &ffp->format_opts);
     if (err < 0) {
         print_error(is->filename, err);
@@ -3052,7 +3065,9 @@ static int read_thread(void *arg)
         ic->flags |= AVFMT_FLAG_GENPTS;
 
     av_format_inject_global_side_data(ic);
-
+    //
+    //4.探测媒体类型，可得到当前文件的封装格式，音视频编码参数等信息
+    //
     opts = setup_find_stream_info_opts(ic, ffp->codec_opts);
     orig_nb_streams = ic->nb_streams;
     do {
@@ -3174,6 +3189,10 @@ static int read_thread(void *arg)
 #endif
 
     /* open the streams */
+    //
+    //5.打开视频、音频解码器。在此会打开相应解码器，并创建相应的解码线程。
+    //
+    //
     if (st_index[AVMEDIA_TYPE_AUDIO] >= 0) {
         stream_component_open(ffp, st_index[AVMEDIA_TYPE_AUDIO]);
     }
@@ -3407,6 +3426,10 @@ static int read_thread(void *arg)
             }
         }
         pkt->flags = 0;
+        //
+        //6.读取媒体数据，得到的是音视频分离之后的解码前数据
+        //
+        //
         ret = av_read_frame(ic, pkt);
         if (ret < 0) {
             int pb_eof = 0;
@@ -3460,7 +3483,9 @@ static int read_thread(void *arg)
         } else {
             is->eof = 0;
         }
-
+        //
+        //7.将音视频数据分别送入相应的queue中
+        //
         if (pkt->flags & AV_PKT_FLAG_DISCONTINUITY) {
             if (is->audio_stream >= 0) {
                 packet_queue_put(&is->audioq, &flush_pkt);
@@ -3546,6 +3571,13 @@ static VideoState *stream_open(FFPlayer *ffp, const char *filename, AVInputForma
 #endif
 
     /* start video display */
+    //
+    //创建存放video/audio解码前数据的videoq/audioq
+    //创建存放video/audio解码后数据的pictq/sampq
+    //创建读数据线程read_thread
+    //创建视频渲染线程video_refresh_thread
+    //subtitle是与video、audio平行的一个stream，ffplay中也支持对它的处理，即创建存放解码前后数据的两个queue，并且当文件中存在subtitle时，还会启动subtitle的解码线程
+    //
     if (frame_queue_init(&is->pictq, &is->videoq, ffp->pictq_size, 1) < 0)
         goto fail;
     if (frame_queue_init(&is->subpq, &is->subtitleq, SUBPICTURE_QUEUE_SIZE, 0) < 0)

@@ -1046,7 +1046,7 @@ public class IjkVideoView extends FrameLayout implements MediaController.MediaPl
                     ijkMediaPlayer = new IjkMediaPlayer();
                     ijkMediaPlayer.native_setLogLevel(IjkMediaPlayer.IJK_LOG_DEBUG);
 
-                    if (mSettings.getUsingMediaCodec()) {
+                    if (mSettings.getUsingMediaCodec()) {//ÅÐ¶ÏÊÇ·ñÎªÓ²½âÂë
                         ijkMediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 1);
                         if (mSettings.getUsingMediaCodecAutoRotate()) {
                             ijkMediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-auto-rotate", 1);
